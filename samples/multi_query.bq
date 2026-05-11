@@ -1,0 +1,13 @@
+script MultiQueryDemo
+
+// This sample exercises all three query types the grammar supports.
+// In Phase I, only 'find bytes' generates full codegen.
+// 'find calls' and 'find functions' parse correctly but their handlers
+// are stubs for Phase I (emit empty strings). See README.txt.
+
+// Fully-implemented query: find bytes
+find bytes "C3" from 0x00401000
+
+// Stub queries: parse cleanly, no codegen emitted
+find calls to "malloc"
+find functions where xrefs > 5
