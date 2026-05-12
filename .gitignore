@@ -4,3 +4,4 @@ generated/
 # Generator outputs --- only the .bq.expected.java goldens are tracked
 samples/*.java
 !samples/*.bq.expected.java
+bq-report.pdf

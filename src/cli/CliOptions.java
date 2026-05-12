@@ -11,7 +11,7 @@ import java.util.List;
 // usage error).
 public final class CliOptions {
 
-    public static final String VERSION = "BinQuery 1.6";
+    public static final String VERSION = "BinQuery 1.7";
 
     public static final String USAGE = String.join("\n",
         "usage: bq [options] <script.bq> [more.bq ...]",

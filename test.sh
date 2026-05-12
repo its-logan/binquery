@@ -110,7 +110,7 @@ assert_parse_errors() {
 # ----- Test 1: per-query goldens --------------------------------------------
 
 echo
-echo "=== Test 1: per-query goldens ============================"
+echo "=== Test 1: each sample compiles to the saved expected Java ====="
 for s in audit find_calls find_calls_thunks find_functions_xrefs \
          find_functions_named find_symbols find_in_function cache_reuse \
          find_strings scope_blocks; do
@@ -121,14 +121,14 @@ done
 # ----- Test 2: multi_query parse smoke --------------------------------------
 
 echo
-echo "=== Test 2: multi_query.bq parses end-to-end ============="
+echo "=== Test 2: every query type works in one script ==============="
 run_main "samples/multi_query.bq"
 echo "  PASS: every production cohabits"
 
 # ----- Test 3: SemanticException demos ---------------------------------------
 
 echo
-echo "=== Test 3: error_demo* --- semantic validation =========="
+echo "=== Test 3: bad inputs raise the right errors =================="
 assert_semantic_exception error_demo          "invalid byte pattern"
 assert_semantic_exception error_demo_empty    "cannot be empty"
 assert_semantic_exception error_demo_conflict "mutually exclusive"
@@ -142,7 +142,7 @@ assert_parse_errors       error_demo_syntax_multi 3
 # ----- Test 4: CLI ergonomics ----------------------------------------------
 
 echo
-echo "=== Test 4: CLI ergonomics ==============================="
+echo "=== Test 4: command-line flags behave as documented ============"
 BQ="java -cp bin:$ANTLR_JAR binquery.Main"
 
 cli_check() {
@@ -221,7 +221,7 @@ rm -rf /tmp/bq-cli-outdir /tmp/bq-cli.out /tmp/bq-cli.err
 
 if [ "$CHECK_GHIDRA" -eq 1 ]; then
     echo
-    echo "=== Test 5: type-check against Ghidra API ================"
+    echo "=== Test 5: generated Java compiles against the real Ghidra API "
     if [ ! -d "$GHIDRA" ]; then
         echo "  FAIL: Ghidra not found at $GHIDRA"
         echo "  Set \$GHIDRA to your install path, or drop --ghidra."
