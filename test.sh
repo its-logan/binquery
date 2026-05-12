@@ -72,12 +72,37 @@ assert_golden() {
 assert_semantic_exception() {
     local sample="$1"
     local expected_snippet="$2"
-    if java -cp "bin:$ANTLR_JAR" binquery.Main "samples/${sample}.bq" 2>&1 \
-            | grep -q "SemanticException.*${expected_snippet}"; then
-        echo "  PASS: ${sample} raised SemanticException"
+    local out rc
+    if out=$(java -cp "bin:$ANTLR_JAR" binquery.Main "samples/${sample}.bq" 2>&1); then
+        rc=0
     else
-        echo "  FAIL: ${sample} did not raise expected SemanticException"
-        java -cp "bin:$ANTLR_JAR" binquery.Main "samples/${sample}.bq" 2>&1 | head -3
+        rc=$?
+    fi
+    if [ "$rc" -ne 0 ] && printf '%s\n' "$out" | grep -q "Error \[line.*${expected_snippet}"; then
+        echo "  PASS: ${sample} raised compile error"
+    else
+        echo "  FAIL: ${sample} did not raise expected error"
+        printf '%s\n' "$out" | head -5
+        exit 1
+    fi
+}
+
+assert_parse_errors() {
+    local sample="$1"
+    local expected="$2"
+    local out rc
+    if out=$(java -cp "bin:$ANTLR_JAR" binquery.Main "samples/${sample}.bq" 2>&1); then
+        rc=0
+    else
+        rc=$?
+    fi
+    local count
+    count=$(printf '%s\n' "$out" | grep -c '^Error \[line' || true)
+    if [ "$rc" -ne 0 ] && [ "$count" -eq "$expected" ]; then
+        echo "  PASS: ${sample} (${count} parse errors, exit ${rc})"
+    else
+        echo "  FAIL: ${sample}: expected ${expected} parse errors + nonzero exit; got ${count} errors, exit ${rc}"
+        printf '%s\n' "$out" | head -10
         exit 1
     fi
 }
@@ -108,6 +133,8 @@ assert_semantic_exception error_demo          "invalid byte pattern"
 assert_semantic_exception error_demo_empty    "cannot be empty"
 assert_semantic_exception error_demo_conflict "mutually exclusive"
 assert_semantic_exception error_demo_strings  "minlen must be"
+assert_parse_errors       error_demo_syntax       1
+assert_parse_errors       error_demo_syntax_multi 3
 
 # ----- Test 4: Ghidra API type-check ----------------------------------------
 

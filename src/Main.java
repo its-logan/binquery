@@ -5,6 +5,9 @@ import org.antlr.v4.runtime.tree.*;
 import java.nio.file.*;
 import binquery.BinQueryParser;
 import binquery.BinQueryLexer;
+import binquery.error.BinQueryErrorListener;
+import binquery.error.SemanticException;
+import binquery.error.SyntaxException;
 
 public class Main {
     public static void main(String[] args) throws Exception {
@@ -18,16 +21,31 @@ public class Main {
         CommonTokenStream tokens = new CommonTokenStream(lexer);
         BinQueryParser parser    = new BinQueryParser(tokens);
 
-        // TODO(phase-II): wire up a custom error listener
-        // parser.removeErrorListeners();
-        // parser.addErrorListener(new BinQueryErrorListener());
+        BinQueryErrorListener listener = new BinQueryErrorListener();
+        lexer.removeErrorListeners();
+        lexer.addErrorListener(listener);
+        parser.removeErrorListeners();
+        parser.addErrorListener(listener);
 
-        BinQueryParser.ProgramContext tree = parser.program();
-        CodeGenVisitor visitor = new CodeGenVisitor();
-        String output = visitor.visit(tree);
+        try {
+            BinQueryParser.ProgramContext tree = parser.program();
 
-        String outPath = args[0].replace(".bq", ".java");
-        Files.writeString(Path.of(outPath), output);
-        System.out.println("wrote " + outPath);
+            if (listener.hasErrors()) {
+                for (SyntaxException ex : listener.getErrors()) {
+                    System.err.println(ex.getMessage());
+                }
+                System.exit(1);
+            }
+
+            CodeGenVisitor visitor = new CodeGenVisitor();
+            String output = visitor.visit(tree);
+
+            String outPath = args[0].replace(".bq", ".java");
+            Files.writeString(Path.of(outPath), output);
+            System.out.println("wrote " + outPath);
+        } catch (SemanticException e) {
+            System.err.println(e.getMessage());
+            System.exit(1);
+        }
     }
 }

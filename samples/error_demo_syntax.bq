@@ -1,0 +1,7 @@
+script SyntaxDemo
+
+// Unquoted byte pattern. The STRING lexer rule requires double quotes,
+// so the parser bails on `4D` and BinQueryErrorListener records a
+// SyntaxException. Main.java prints the message and exits 1 before the
+// visitor ever runs --- no NPE from a malformed tree.
+find bytes 4D 5A
