@@ -1,0 +1,7 @@
+script FindFunctionsNamedDemo
+
+// Substring match against fn.getName()
+find functions named "sub_"
+
+// Combined with location filter
+find functions named "Create" external

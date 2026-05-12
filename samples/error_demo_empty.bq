@@ -1,0 +1,5 @@
+script ErrorDemoEmpty
+
+// Empty STRING in a non-bytes production. FindCallsHandler.validate()
+// throws SemanticException at the offending line.
+find calls to ""

@@ -1,0 +1,7 @@
+script FindCallsDemo
+
+// Plain: every call site to malloc in the binary
+find calls to "malloc"
+
+// External-filtered: only call sites whose target symbol is an import
+find calls to "CreateFileA" external

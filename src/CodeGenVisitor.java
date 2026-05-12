@@ -3,6 +3,7 @@ import binquery.BinQueryBaseVisitor;
 import binquery.BinQueryParser.*;
 import binquery.handlers.FindCallsHandler;
 import binquery.handlers.FindFunctionsHandler;
+import binquery.handlers.FindSymbolsHandler;
 import binquery.handlers.FindBytesHandler;
 import binquery.error.SemanticException;
 
@@ -14,12 +15,11 @@ public class CodeGenVisitor extends BinQueryBaseVisitor<String> {
 
     private final FindCallsHandler     callsHandler     = new FindCallsHandler();
     private final FindFunctionsHandler functionsHandler = new FindFunctionsHandler();
+    private final FindSymbolsHandler   symbolsHandler   = new FindSymbolsHandler();
     private final FindBytesHandler     bytesHandler     = new FindBytesHandler();
 
     private String scriptName;
     private final StringBuilder body = new StringBuilder();
-
-    // ── program: scriptDecl query+ EOF ──────────────────────────────────────
 
     @Override
     public String visitProgram(ProgramContext ctx) {
@@ -30,15 +30,11 @@ public class CodeGenVisitor extends BinQueryBaseVisitor<String> {
         return buildOutput();
     }
 
-    // ── scriptDecl: SCRIPT IDENTIFIER ───────────────────────────────────────
-
     @Override
     public String visitScriptDecl(ScriptDeclContext ctx) {
         scriptName = ctx.IDENTIFIER().getText();
         return null;
     }
-
-    // ── query dispatch ───────────────────────────────────────────────────────
 
     @Override
     public String visitFindCalls(FindCallsContext ctx) {
@@ -55,6 +51,13 @@ public class CodeGenVisitor extends BinQueryBaseVisitor<String> {
     }
 
     @Override
+    public String visitFindSymbols(FindSymbolsContext ctx) {
+        symbolsHandler.validate(ctx);
+        body.append(symbolsHandler.emit(ctx));
+        return null;
+    }
+
+    @Override
     public String visitFindBytes(FindBytesContext ctx) {
         bytesHandler.validate(ctx);
         body.append(bytesHandler.emit(ctx));
@@ -67,9 +70,12 @@ public class CodeGenVisitor extends BinQueryBaseVisitor<String> {
              + "import ghidra.program.model.symbol.*;\n"
              + "import ghidra.program.model.listing.*;\n"
              + "import ghidra.program.model.address.*;\n"
+             + "import java.util.HashMap;\n"
+             + "import java.util.Map;\n"
              + "\n"
              + "public class " + scriptName + " extends GhidraScript {\n"
              + "    public void run() throws Exception {\n"
+             + "      Map<String, Address[]> _byteCache = new HashMap<>();\n"
              + body.toString()
              + "    }\n"
              + "}\n";

@@ -1,0 +1,10 @@
+script FindSymbolsDemo
+
+// All symbols matching a name
+find symbols "_stdout"
+
+// External-only: imports matching this name
+find symbols "printf" external
+
+// Stand-alone enumeration of every external function
+find functions external

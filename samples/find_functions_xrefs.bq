@@ -1,0 +1,11 @@
+script FindFunctionsXrefsDemo
+
+// Cover every compareOp variant
+find functions where xrefs > 5
+find functions where xrefs >= 10
+find functions where xrefs == 0
+find functions where xrefs <= 1
+find functions where xrefs < 2
+
+// With location filter: external functions called more than 5 times
+find functions where xrefs > 5 external

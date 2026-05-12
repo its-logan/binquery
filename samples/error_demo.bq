@@ -1,14 +1,9 @@
 script ErrorDemo
 
-// This sample intentionally contains a malformed hex pattern.
-// Running it exercises the semantic-level operation in
-// FindBytesHandler.validate() --- each whitespace-separated token
-// must match [0-9A-Fa-f]{2}. "X" does not, so compilation aborts
-// with a SemanticException carrying the offending line number.
-//
-// Expected behavior:
+// Malformed hex pattern. FindBytesHandler.validate() rejects each
+// whitespace-separated token that fails [0-9A-Fa-f]{2}.
+// Expected:
 //   Exception in thread "main" binquery.error.SemanticException:
-//   Error [line 10] invalid byte pattern token "X": expected hex pair
-//   like "4D", got "X"
+//   Error [line N] invalid byte pattern token "X": ...
 
 find bytes "4D X"

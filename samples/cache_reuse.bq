@@ -1,0 +1,6 @@
+script CacheReuseDemo
+
+// Two identical find-bytes queries: the second must hit the
+// script-level _byteCache and skip the memory scan.
+find bytes "4D 5A" from 0x00400000
+find bytes "4D 5A" from 0x00400000

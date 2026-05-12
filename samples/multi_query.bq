@@ -1,13 +1,20 @@
 script MultiQueryDemo
 
-// This sample exercises all three query types the grammar supports.
-// In Phase I, only 'find bytes' generates full codegen.
-// 'find calls' and 'find functions' parse correctly but their handlers
-// are stubs for Phase I (emit empty strings). See README.txt.
+// Exercises every query type the grammar now supports. Per-query
+// goldens live in samples/find_*.bq.expected.java; this file is
+// kept as a parse-only smoke test that all productions cohabit.
 
-// Fully-implemented query: find bytes
 find bytes "C3" from 0x00401000
+find bytes "4D 5A" in function "main"
 
-// Stub queries: parse cleanly, no codegen emitted
 find calls to "malloc"
+find calls to "CreateFileA" external
+
 find functions where xrefs > 5
+find functions where xrefs == 0
+find functions named "sub_"
+find functions named "Create" external
+find functions external
+
+find symbols "_stdout"
+find symbols "printf" external
