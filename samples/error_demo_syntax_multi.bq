@@ -1,8 +1,0 @@
-script SyntaxMulti
-
-// Three independent syntax errors. BinQueryErrorListener accumulates
-// each; Main.java prints all three before exiting 1. Verifies the
-// collect-all (rather than halt-on-first) behavior of the listener.
-find bytes 4D 5A
-find calls to malloc
-find symbols stdout

@@ -1,9 +1,0 @@
-script ErrorDemo
-
-// Malformed hex pattern. FindBytesHandler.validate() rejects each
-// whitespace-separated token that fails [0-9A-Fa-f]{2}.
-// Expected:
-//   Exception in thread "main" binquery.error.SemanticException:
-//   Error [line N] invalid byte pattern token "X": ...
-
-find bytes "4D X"

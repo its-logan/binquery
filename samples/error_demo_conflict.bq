@@ -1,5 +1,0 @@
-script ErrorDemoConflict
-
-// FROM and IN FUNCTION are mutually exclusive. FindBytesHandler.validate()
-// throws SemanticException when both clauses appear.
-find bytes "4D 5A" from 0x00400000 in function "main"
