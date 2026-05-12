@@ -9,7 +9,7 @@ import binquery.error.SemanticException;
 // find strings minlen N (ascii|unicode)? (containing "L" | matching "R")? (in function "F")?
 public class FindStringsHandler {
 
-    public void validate(FindStringsContext ctx) {
+    public void validate(FindStringsContext ctx, boolean inScopeBlock) {
         int line = ctx.getStart().getLine();
         int minlen = Integer.parseInt(ctx.INT().getText());
         if (minlen < 1) {
@@ -36,13 +36,17 @@ public class FindStringsHandler {
         }
 
         ScopeClauseContext sc = ctx.scopeClause();
+        if (inScopeBlock && sc != null) {
+            throw new SemanticException(line,
+                "trailing scope clause forbidden inside scope block");
+        }
         if (sc != null && stripQuotes(sc.STRING().getText()).isEmpty()) {
             throw new SemanticException(line,
                 "function name in IN FUNCTION cannot be empty");
         }
     }
 
-    public String emit(FindStringsContext ctx) {
+    public String emit(FindStringsContext ctx, String ambientScope) {
         int minlen = Integer.parseInt(ctx.INT().getText());
 
         EncodingClauseContext ec = ctx.encodingClause();
@@ -58,7 +62,10 @@ public class FindStringsHandler {
         boolean hasFnScope = sc != null;
         String fnName = hasFnScope ? stripQuotes(sc.STRING().getText()) : null;
 
-        String scopeMarker = hasFnScope ? "infn=" + fnName : "all";
+        String scopeMarker;
+        if (ambientScope != null) scopeMarker = "inscope=" + ambientScope;
+        else if (hasFnScope)      scopeMarker = "infn=" + fnName;
+        else                      scopeMarker = "all";
         String cacheKey = scopeMarker + "@" + minlen + (asciiOnly ? "@ascii" : "");
 
         String filterTag;
@@ -75,13 +82,18 @@ public class FindStringsHandler {
         if (isContains)  sb.append(" containing \"").append(filterLit).append("\"");
         if (isMatching)  sb.append(" matching \"").append(filterLit).append("\"");
         if (hasFnScope)  sb.append(" in function \"").append(fnName).append("\"");
+        if (ambientScope != null) sb.append(" (ambient ").append(ambientScope).append(")");
         sb.append(" ---\n");
 
         sb.append("        String _key = \"").append(cacheKey).append("\";\n");
         sb.append("        java.util.List<FoundString> _strs = _stringCache.get(_key);\n");
         sb.append("        if (_strs == null) {\n");
 
-        if (hasFnScope) {
+        if (ambientScope != null) {
+            sb.append("            _strs = findStrings(").append(ambientScope).append(", ")
+              .append(minlen).append(", 1, true, ")
+              .append(asciiOnly ? "false" : "true").append(");\n");
+        } else if (hasFnScope) {
             emitFunctionScopeResolution(sb, fnName, minlen, asciiOnly);
         } else {
             sb.append("            _strs = findStrings(currentProgram.getMemory(), ")

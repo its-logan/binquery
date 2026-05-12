@@ -2,6 +2,7 @@ import ghidra.app.script.GhidraScript;
 import ghidra.program.model.symbol.*;
 import ghidra.program.model.listing.*;
 import ghidra.program.model.address.*;
+import ghidra.program.model.mem.MemoryBlock;
 import ghidra.program.util.string.FoundString;
 import java.util.HashMap;
 import java.util.Map;

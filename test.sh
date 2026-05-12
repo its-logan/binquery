@@ -47,7 +47,7 @@ rm -rf bin generated
 mkdir -p bin generated
 ( cd src && java -jar "$ANTLR_JAR" -o ../generated -package binquery -visitor BinQuery.g4 )
 javac -cp "$ANTLR_JAR" -d bin \
-    src/*.java src/handlers/*.java src/error/*.java generated/*.java
+    src/*.java src/cli/*.java src/handlers/*.java src/error/*.java generated/*.java
 echo "  build OK"
 
 # ----- helpers ---------------------------------------------------------------
@@ -97,7 +97,7 @@ assert_parse_errors() {
         rc=$?
     fi
     local count
-    count=$(printf '%s\n' "$out" | grep -c '^Error \[line' || true)
+    count=$(printf '%s\n' "$out" | grep -c 'Error \[line' || true)
     if [ "$rc" -ne 0 ] && [ "$count" -eq "$expected" ]; then
         echo "  PASS: ${sample} (${count} parse errors, exit ${rc})"
     else
@@ -113,7 +113,7 @@ echo
 echo "=== Test 1: per-query goldens ============================"
 for s in audit find_calls find_calls_thunks find_functions_xrefs \
          find_functions_named find_symbols find_in_function cache_reuse \
-         find_strings; do
+         find_strings scope_blocks; do
     run_main "samples/${s}.bq"
     assert_golden "${s}"
 done
@@ -133,14 +133,95 @@ assert_semantic_exception error_demo          "invalid byte pattern"
 assert_semantic_exception error_demo_empty    "cannot be empty"
 assert_semantic_exception error_demo_conflict "mutually exclusive"
 assert_semantic_exception error_demo_strings  "minlen must be"
+assert_semantic_exception error_demo_scope_conflict "trailing scope clause forbidden"
 assert_parse_errors       error_demo_syntax       1
 assert_parse_errors       error_demo_syntax_multi 3
 
 # ----- Test 4: Ghidra API type-check ----------------------------------------
 
+# ----- Test 4: CLI ergonomics ----------------------------------------------
+
+echo
+echo "=== Test 4: CLI ergonomics ==============================="
+BQ="java -cp bin:$ANTLR_JAR binquery.Main"
+
+cli_check() {
+    local label="$1"; shift
+    local expected_rc="$1"; shift
+    local cmd_rc
+    if "$@" > /tmp/bq-cli.out 2> /tmp/bq-cli.err; then cmd_rc=0; else cmd_rc=$?; fi
+    if [ "$cmd_rc" -eq "$expected_rc" ]; then
+        echo "  PASS: ${label} (exit ${cmd_rc})"
+    else
+        echo "  FAIL: ${label}: expected exit ${expected_rc}, got ${cmd_rc}"
+        cat /tmp/bq-cli.out /tmp/bq-cli.err
+        exit 1
+    fi
+}
+
+cli_check "--version"     0 $BQ --version
+cli_check "--help"        0 $BQ --help
+cli_check "no args"       2 $BQ
+cli_check "unknown flag"  2 $BQ --bogus samples/audit.bq
+cli_check "-o + multi"    2 $BQ -o /tmp/x.java samples/audit.bq samples/find_calls.bq
+cli_check "--check ok"    0 $BQ --check samples/audit.bq
+cli_check "--check fail"  1 $BQ --check samples/error_demo.bq
+cli_check "-q success"    0 $BQ -q --check samples/audit.bq
+cli_check "-o stdout"     0 $BQ -o - samples/audit.bq
+
+# -d outdir creates directory and writes files there
+rm -rf /tmp/bq-cli-outdir
+cli_check "-d outdir"     0 $BQ -d /tmp/bq-cli-outdir samples/audit.bq samples/find_calls.bq
+if [ -f /tmp/bq-cli-outdir/audit.java ] && [ -f /tmp/bq-cli-outdir/find_calls.java ]; then
+    echo "  PASS: -d wrote both files into outdir"
+else
+    echo "  FAIL: -d did not produce expected files"
+    ls /tmp/bq-cli-outdir/
+    exit 1
+fi
+
+# Batch with one failure: rc=1, good files still written, bad file's .java NOT
+rm -f samples/error_demo.java
+cli_check "batch 1 fail"  1 $BQ -q -d /tmp/bq-cli-outdir samples/audit.bq samples/error_demo.bq samples/find_calls.bq
+if [ ! -f /tmp/bq-cli-outdir/error_demo.java ]; then
+    echo "  PASS: failed input did not produce output file"
+else
+    echo "  FAIL: failed input wrote a stale .java"
+    exit 1
+fi
+
+# Headless flags (no real analyzeHeadless invocation -- slow + needs a binary).
+# --run-in requires either --ghidra or $GHIDRA.
+sub_rc=0
+( unset GHIDRA && $BQ --run-in /bin/ls samples/audit.bq > /dev/null 2>&1 ) || sub_rc=$?
+if [ "$sub_rc" -eq 2 ]; then
+    echo "  PASS: --run-in without ghidra/GHIDRA fails rc=2"
+else
+    echo "  FAIL: --run-in without ghidra should rc=2 (got $sub_rc)"
+    exit 1
+fi
+
+cli_check "--run-in bad target"  2 $BQ --ghidra "$GHIDRA" --run-in /no/such/file samples/audit.bq
+cli_check "--run-in + --check"   2 $BQ --ghidra "$GHIDRA" --run-in /bin/ls --check samples/audit.bq
+cli_check "--run-in + -o -"      2 $BQ --ghidra "$GHIDRA" --run-in /bin/ls -o - samples/audit.bq
+cli_check "--dry-run alone"      2 $BQ --dry-run samples/audit.bq
+
+# --dry-run with --run-in prints argv containing analyzeHeadless and the class name
+$BQ --ghidra "$GHIDRA" --run-in /bin/ls --dry-run -q samples/audit.bq > /tmp/bq-dryrun.out 2>&1
+if grep -q 'analyzeHeadless' /tmp/bq-dryrun.out && grep -q 'AuditScript.java' /tmp/bq-dryrun.out; then
+    echo "  PASS: --dry-run prints analyzeHeadless argv with class name"
+else
+    echo "  FAIL: --dry-run argv missing expected content"
+    cat /tmp/bq-dryrun.out
+    exit 1
+fi
+rm -f /tmp/bq-dryrun.out
+
+rm -rf /tmp/bq-cli-outdir /tmp/bq-cli.out /tmp/bq-cli.err
+
 if [ "$CHECK_GHIDRA" -eq 1 ]; then
     echo
-    echo "=== Test 4: type-check against Ghidra API ================"
+    echo "=== Test 5: type-check against Ghidra API ================"
     if [ ! -d "$GHIDRA" ]; then
         echo "  FAIL: Ghidra not found at $GHIDRA"
         echo "  Set \$GHIDRA to your install path, or drop --ghidra."
@@ -152,7 +233,7 @@ if [ "$CHECK_GHIDRA" -eq 1 ]; then
     mkdir -p "$TMP/src"
     for s in audit find_calls find_calls_thunks find_functions_xrefs \
              find_functions_named find_symbols find_in_function \
-             cache_reuse find_strings multi_query; do
+             cache_reuse find_strings scope_blocks multi_query; do
         # Generated .java's class name is derived from the script's IDENTIFIER,
         # not the filename. Read first 'public class' line.
         cls=$(grep -m1 -oP 'public class \K\w+' "samples/${s}.java")

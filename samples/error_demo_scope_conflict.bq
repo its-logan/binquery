@@ -1,0 +1,9 @@
+script ErrorScopeConflict
+
+// A query inside a scope block may not declare its own trailing scope
+// clause. The block already owns the scope. Validate() throws
+// SemanticException("trailing scope clause forbidden inside scope block").
+
+in function "main" {
+    find bytes "C3" in function "outer"
+}

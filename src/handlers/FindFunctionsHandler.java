@@ -29,21 +29,28 @@ public class FindFunctionsHandler {
         }
     }
 
-    public String emit(FindFunctionsContext ctx) {
+    public String emit(FindFunctionsContext ctx, String ambientScope) {
         FunctionPredicateContext pred = ctx.functionPredicate();
         if (pred instanceof PredXrefsContext) {
-            return emitXrefs((PredXrefsContext) pred);
+            return emitXrefs((PredXrefsContext) pred, ambientScope);
         }
         if (pred instanceof PredNamedContext) {
-            return emitNamed((PredNamedContext) pred);
+            return emitNamed((PredNamedContext) pred, ambientScope);
         }
         if (pred instanceof PredLocationOnlyContext) {
-            return emitLocationOnly((PredLocationOnlyContext) pred);
+            return emitLocationOnly((PredLocationOnlyContext) pred, ambientScope);
         }
         return "";
     }
 
-    private String emitXrefs(PredXrefsContext px) {
+    private void appendScopeCheck(StringBuilder sb, String ambientScope) {
+        if (ambientScope != null) {
+            sb.append("            if (!").append(ambientScope)
+              .append(".contains(_fn.getEntryPoint())) continue;\n");
+        }
+    }
+
+    private String emitXrefs(PredXrefsContext px, String ambientScope) {
         String op = compareOpText(px.compareOp());
         String n = px.INT().getText();
         LocFlags lf = locFlags(px.locationFilter());
@@ -52,6 +59,7 @@ public class FindFunctionsHandler {
         sb.append("      {\n");
         sb.append("        // --- find functions where xrefs ").append(op).append(" ").append(n);
         appendFilterComment(sb, lf);
+        if (ambientScope != null) sb.append(" (ambient ").append(ambientScope).append(")");
         sb.append(" ---\n");
 
         sb.append("        FunctionIterator _fns = currentProgram.getFunctionManager().getFunctions(true);\n");
@@ -59,6 +67,7 @@ public class FindFunctionsHandler {
         sb.append("        while (_fns.hasNext()) {\n");
         sb.append("            Function _fn = _fns.next();\n");
         appendFilterCheck(sb, lf);
+        appendScopeCheck(sb, ambientScope);
         sb.append("            int _count = getReferencesTo(_fn.getEntryPoint()).length;\n");
         sb.append("            if (_count ").append(op).append(" ").append(n).append(") {\n");
         sb.append("                printf(\"FN  %s  xrefs=%d  at %s")
@@ -73,7 +82,7 @@ public class FindFunctionsHandler {
         return sb.toString();
     }
 
-    private String emitNamed(PredNamedContext pn) {
+    private String emitNamed(PredNamedContext pn, String ambientScope) {
         String pat = stripQuotes(pn.STRING().getText());
         LocFlags lf = locFlags(pn.locationFilter());
 
@@ -81,6 +90,7 @@ public class FindFunctionsHandler {
         sb.append("      {\n");
         sb.append("        // --- find functions named \"").append(pat).append("\"");
         appendFilterComment(sb, lf);
+        if (ambientScope != null) sb.append(" (ambient ").append(ambientScope).append(")");
         sb.append(" ---\n");
 
         sb.append("        FunctionIterator _fns = currentProgram.getFunctionManager().getFunctions(true);\n");
@@ -88,6 +98,7 @@ public class FindFunctionsHandler {
         sb.append("        while (_fns.hasNext()) {\n");
         sb.append("            Function _fn = _fns.next();\n");
         appendFilterCheck(sb, lf);
+        appendScopeCheck(sb, ambientScope);
         sb.append("            if (_fn.getName().contains(\"").append(pat).append("\")) {\n");
         sb.append("                printf(\"FN  %s  at %s").append(lf.suffix)
           .append("\\n\", _fn.getName(), _fn.getEntryPoint().toString());\n");
@@ -101,13 +112,14 @@ public class FindFunctionsHandler {
         return sb.toString();
     }
 
-    private String emitLocationOnly(PredLocationOnlyContext pl) {
+    private String emitLocationOnly(PredLocationOnlyContext pl, String ambientScope) {
         LocFlags lf = locFlags(pl.locationFilter());
 
         StringBuilder sb = new StringBuilder();
         sb.append("      {\n");
         sb.append("        // --- find functions");
         appendFilterComment(sb, lf);
+        if (ambientScope != null) sb.append(" (ambient ").append(ambientScope).append(")");
         sb.append(" ---\n");
 
         sb.append("        FunctionIterator _fns = currentProgram.getFunctionManager().getFunctions(true);\n");
@@ -115,6 +127,7 @@ public class FindFunctionsHandler {
         sb.append("        while (_fns.hasNext()) {\n");
         sb.append("            Function _fn = _fns.next();\n");
         appendFilterCheck(sb, lf);
+        appendScopeCheck(sb, ambientScope);
         sb.append("            printf(\"FN  %s  at %s").append(lf.suffix)
           .append("\\n\", _fn.getName(), _fn.getEntryPoint().toString());\n");
         sb.append("            _hitCount++;\n");

@@ -1,11 +1,25 @@
 grammar BinQuery;
 
 program
-    : scriptDecl query+ EOF
+    : scriptDecl topLevel+ EOF
     ;
 
 scriptDecl
     : SCRIPT IDENTIFIER
+    ;
+
+topLevel
+    : query
+    | scopeBlock
+    ;
+
+scopeBlock
+    : IN scopeSelector LBRACE topLevel+ RBRACE
+    ;
+
+scopeSelector
+    : BLOCK STRING
+    | FUNCTION STRING
     ;
 
 query
@@ -98,6 +112,9 @@ CONTAINING  : 'containing' ;
 MATCHING    : 'matching' ;
 ASCII       : 'ascii' ;
 UNICODE     : 'unicode' ;
+BLOCK       : 'block' ;
+LBRACE      : '{' ;
+RBRACE      : '}' ;
 
 // Comparison operators --- multi-char first to satisfy lexer max-munch ordering
 GE          : '>=' ;

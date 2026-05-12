@@ -18,6 +18,9 @@ The grammar (src/BinQuery.g4) currently supports five query verbs:
                        (containing "<lit>" | matching "<regex>")?
                        (in function "<name>")?
 
+    in block "<name>"    { <queries> ... }     // shared memory-block scope
+    in function "<name>" { <queries> ... }     // shared function-body scope
+
 Every query verb is fully implemented; grammar coverage is demonstrated
 by samples/multi_query.bq.
 
@@ -52,12 +55,67 @@ The Bash one-liner equivalent of all the above lives in test.sh's Build
 section --- run ./test.sh once and everything compiles clean.
 
 
-Run a single script
--------------------
-Compile the .bq into a Ghidra script:
+Command-line usage
+------------------
+    bq [options] <script.bq> [more.bq ...]
 
-    java -cp "bin:$ANTLR_JAR" binquery.Main samples/audit.bq
-    # writes samples/audit.java
+      -h, --help              show usage and exit
+          --version           print version and exit
+      -o, --output <path>     write generated code to <path>; use - for stdout
+                              (only valid with a single input)
+      -d, --outdir <dir>      write outputs to <dir>/<basename>.java
+                              (default: alongside each input)
+          --check             validate inputs; do not write any output
+      -q, --quiet             suppress per-file 'wrote <path>' messages
+
+    Headless Ghidra execution:
+          --run-in <binary>   after compiling, run the script against <binary>
+          --ghidra <path>     Ghidra install root (overrides $GHIDRA)
+          --project <dir>     project dir (default: ~/.cache/bq/projects/<sha256>)
+          --keep-project      retain project dir (currently no-op; projects are
+                              persistent by default)
+          --dry-run           with --run-in: compile, print analyzeHeadless argv,
+                              do not invoke
+
+`bq` is shorthand for `java -cp "bin:$ANTLR_JAR" binquery.Main`. With
+multiple positional inputs each file is compiled independently;
+a compile error on one file does not stop the others. Exit code is 1
+if any input failed, 0 otherwise. Use exit code 2 to detect a CLI
+usage error (bad flag, no inputs, conflicting options).
+
+Examples:
+
+    bq samples/audit.bq                       # writes samples/audit.java
+    bq -o /tmp/Audit.java samples/audit.bq    # custom output path
+    bq -o - samples/audit.bq | less           # output to stdout
+    bq -d build samples/*.bq                  # batch into build/
+    bq --check samples/*.bq                   # lint only, no files written
+
+Headless Ghidra execution
+-------------------------
+With --run-in, bq compiles the script then invokes Ghidra's
+$GHIDRA/support/analyzeHeadless against the target binary. Output
+streams to the terminal as Ghidra runs.
+
+    export GHIDRA=$HOME/ghidra_11.3_PUBLIC
+    bq --run-in target.exe samples/audit.bq
+
+Project directories are persistent and content-addressed by default:
+
+    ~/.cache/bq/projects/<sha256-of-binary>/
+
+The first run analyzes the binary (10-60s); subsequent runs against the
+same binary reuse the cached project and start much faster. Override
+with --project <dir> for a one-off location. Wipe the cache when
+disk-pressured:
+
+    rm -rf ~/.cache/bq/projects/
+
+Use --dry-run to inspect (and capture) the analyzeHeadless argv without
+running:
+
+    bq --ghidra "$GHIDRA" --run-in target.exe --dry-run samples/audit.bq
+    # prints one argv element per line; copy-paste into a shell to repeat.
 
 The generated .java is a plain GhidraScript. Drop it into Ghidra's
 ghidra_scripts/ directory (or any directory listed under
@@ -103,6 +161,46 @@ If you want to run test 4:
   3. Point $GHIDRA at the extracted directory and re-run:
        export GHIDRA=$HOME/ghidra_11.3_PUBLIC
        ./test.sh --ghidra
+
+
+Scope blocks
+------------
+Group queries under a shared scope with `in <selector> { ... }`:
+
+    in block ".text" {
+        find bytes "FF 25"
+        find calls to "malloc"
+        find functions where xrefs > 5
+    }
+
+    in function "main" {
+        find bytes "C3"
+        find strings minlen 8
+    }
+
+Selectors:
+    block "<name>"      MemoryBlock by name (.text, .rdata, EXTERNAL, ...).
+                        Backed by currentProgram.getMemory().getBlock(name).
+    function "<name>"   Function body. Same multiplicity check as the
+                        trailing `in function "X"` clause (0 -> not found,
+                        >1 -> ambiguous, exactly-1 -> body used as scope).
+
+Inside a block, every query's scope is the AddressSetView established by
+the enclosing selector. find-bytes / find-strings restrict their scan;
+find-calls / find-symbols filter by from-address / symbol-address; find-
+functions filter by getEntryPoint().
+
+Nesting is allowed; the inner scope is the intersection of the inner
+selector's set with the enclosing scope:
+
+    in block ".text" {
+        in function "main" {       // scope = .text intersect main.body
+            find strings minlen 4 containing "http"
+        }
+    }
+
+Trailing per-query scope clauses (`in function "X"`, `from <addr>`) are
+forbidden inside a scope block --- the block already owns the scope.
 
 
 Error format

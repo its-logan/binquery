@@ -9,7 +9,7 @@ import binquery.error.SemanticException;
 // fixed match limit; the scan runs until findBytes returns null.
 public class FindBytesHandler {
 
-    public void validate(FindBytesContext ctx) {
+    public void validate(FindBytesContext ctx, boolean inScopeBlock) {
         String raw = stripQuotes(ctx.STRING(0).getText());
 
         if (raw.isBlank()) {
@@ -38,6 +38,13 @@ public class FindBytesHandler {
             );
         }
 
+        if (inScopeBlock && (hasFrom || hasInFn)) {
+            throw new SemanticException(
+                ctx.getStart().getLine(),
+                "trailing scope clause forbidden inside scope block"
+            );
+        }
+
         if (hasInFn) {
             String fnName = stripQuotes(ctx.STRING(1).getText());
             if (fnName.isBlank()) {
@@ -49,7 +56,7 @@ public class FindBytesHandler {
         }
     }
 
-    public String emit(FindBytesContext ctx) {
+    public String emit(FindBytesContext ctx, String ambientScope) {
         String pattern = stripQuotes(ctx.STRING(0).getText());
         int patternByteLen = pattern.strip().split("\\s+").length;
         boolean hasFrom = ctx.HEX_ADDR() != null;
@@ -58,9 +65,10 @@ public class FindBytesHandler {
         String fnName = hasInFn ? stripQuotes(ctx.STRING(1).getText()) : null;
 
         String scopeMarker;
-        if (hasFrom)       scopeMarker = "from=" + fromAddr;
-        else if (hasInFn)  scopeMarker = "infn=" + fnName;
-        else               scopeMarker = "all";
+        if (ambientScope != null) scopeMarker = "inscope=" + ambientScope;
+        else if (hasFrom)         scopeMarker = "from=" + fromAddr;
+        else if (hasInFn)         scopeMarker = "infn=" + fnName;
+        else                      scopeMarker = "all";
 
         String key = pattern + "@" + scopeMarker;
 
@@ -69,6 +77,7 @@ public class FindBytesHandler {
         sb.append("        // --- find bytes \"").append(pattern).append("\"");
         if (hasFrom) sb.append(" from ").append(fromAddr);
         if (hasInFn) sb.append(" in function \"").append(fnName).append("\"");
+        if (ambientScope != null) sb.append(" (ambient ").append(ambientScope).append(")");
         sb.append(" ---\n");
 
         sb.append("        String _key = \"").append(key).append("\";\n");
@@ -76,7 +85,9 @@ public class FindBytesHandler {
         sb.append("        if (_matches == null) {\n");
         sb.append("            java.util.List<Address> _acc = new java.util.ArrayList<>();\n");
 
-        if (hasInFn) {
+        if (ambientScope != null) {
+            emitScopeScanBody(sb, pattern, patternByteLen, ambientScope);
+        } else if (hasInFn) {
             emitInFunctionBody(sb, pattern, patternByteLen, fnName);
         } else {
             String startExpr = hasFrom
@@ -101,6 +112,24 @@ public class FindBytesHandler {
         sb.append("      }\n");
 
         return sb.toString();
+    }
+
+    private void emitScopeScanBody(StringBuilder sb, String pattern,
+                                   int patternByteLen, String scopeVar) {
+        sb.append("            AddressRangeIterator _ranges = ").append(scopeVar)
+          .append(".getAddressRanges();\n");
+        sb.append("            while (_ranges.hasNext()) {\n");
+        sb.append("                AddressRange _range = _ranges.next();\n");
+        sb.append("                Address _cur = _range.getMinAddress();\n");
+        sb.append("                while (_cur != null && _cur.compareTo(_range.getMaxAddress()) <= 0) {\n");
+        sb.append("                    Address _hit = findBytes(_cur, \"")
+          .append(pattern).append("\");\n");
+        sb.append("                    if (_hit == null) break;\n");
+        sb.append("                    if (_hit.compareTo(_range.getMaxAddress()) > 0) break;\n");
+        sb.append("                    _acc.add(_hit);\n");
+        sb.append("                    _cur = _hit.add(").append(patternByteLen).append(");\n");
+        sb.append("                }\n");
+        sb.append("            }\n");
     }
 
     private void emitSimpleScanBody(StringBuilder sb, String pattern,

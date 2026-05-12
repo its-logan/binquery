@@ -17,7 +17,7 @@ public class FindSymbolsHandler {
         }
     }
 
-    public String emit(FindSymbolsContext ctx) {
+    public String emit(FindSymbolsContext ctx, String ambientScope) {
         String name = stripQuotes(ctx.STRING().getText());
         LocationFilterContext loc = ctx.locationFilter();
         boolean filterExternal = loc != null && loc.EXTERNAL() != null;
@@ -29,6 +29,7 @@ public class FindSymbolsHandler {
         sb.append("        // --- find symbols \"").append(name).append("\"");
         if (filterExternal) sb.append(" external");
         if (filterInternal) sb.append(" internal");
+        if (ambientScope != null) sb.append(" (ambient ").append(ambientScope).append(")");
         sb.append(" ---\n");
 
         sb.append("        SymbolIterator _syms = currentProgram.getSymbolTable().getSymbols(\"")
@@ -40,6 +41,9 @@ public class FindSymbolsHandler {
             sb.append("            if (!_sym.isExternal()) continue;\n");
         } else if (filterInternal) {
             sb.append("            if (_sym.isExternal()) continue;\n");
+        }
+        if (ambientScope != null) {
+            sb.append("            if (!").append(ambientScope).append(".contains(_sym.getAddress())) continue;\n");
         }
         sb.append("            printf(\"SYM  %s  at %s").append(suffix)
           .append("\\n\", _sym.getName(), _sym.getAddress().toString());\n");

@@ -23,3 +23,8 @@ find symbols "printf" external
 find strings minlen 8
 find strings minlen 4 containing "http"
 find strings minlen 6 matching "[A-Z]{4,}" in function "main"
+
+in block ".text" {
+    find bytes "C3"
+    find calls to "malloc"
+}

@@ -17,7 +17,7 @@ public class FindCallsHandler {
         }
     }
 
-    public String emit(FindCallsContext ctx) {
+    public String emit(FindCallsContext ctx, String ambientScope) {
         String name = stripQuotes(ctx.STRING().getText());
         LocationFilterContext loc = ctx.locationFilter();
         boolean filterExternal = loc != null && loc.EXTERNAL() != null;
@@ -26,13 +26,14 @@ public class FindCallsHandler {
         String extSuffix = filterExternal ? " [EXT]" : "";
 
         if (walkThunks) {
-            return emitThunkWalking(name, filterExternal, filterInternal, extSuffix);
+            return emitThunkWalking(name, filterExternal, filterInternal, extSuffix, ambientScope);
         }
-        return emitDirect(name, filterExternal, filterInternal, extSuffix);
+        return emitDirect(name, filterExternal, filterInternal, extSuffix, ambientScope);
     }
 
     private String emitDirect(String name, boolean filterExternal,
-                              boolean filterInternal, String extSuffix) {
+                              boolean filterInternal, String extSuffix,
+                              String ambientScope) {
         StringBuilder sb = new StringBuilder();
         sb.append("      {\n");
         sb.append("        // --- find calls to \"").append(name).append("\"");
@@ -50,6 +51,9 @@ public class FindCallsHandler {
         sb.append("            for (Reference _ref : _refs) {\n");
         sb.append("                if (!_ref.getReferenceType().isCall()) continue;\n");
         sb.append("                Address _from = _ref.getFromAddress();\n");
+        if (ambientScope != null) {
+            sb.append("                if (!").append(ambientScope).append(".contains(_from)) continue;\n");
+        }
         sb.append("                Function _fn = getFunctionContaining(_from);\n");
         sb.append("                String _fnName = (_fn != null) ? _fn.getName() : \"<no-fn>\";\n");
         sb.append("                printf(\"CALL  to ").append(name)
@@ -65,7 +69,8 @@ public class FindCallsHandler {
     }
 
     private String emitThunkWalking(String name, boolean filterExternal,
-                                    boolean filterInternal, String extSuffix) {
+                                    boolean filterInternal, String extSuffix,
+                                    String ambientScope) {
         StringBuilder sb = new StringBuilder();
         sb.append("      {\n");
         sb.append("        // --- find calls to \"").append(name).append("\" through thunks");
@@ -99,11 +104,16 @@ public class FindCallsHandler {
 
         sb.append("        int _hitCount = 0;\n");
 
+        String scopeCheck = ambientScope != null
+            ? "                if (!" + ambientScope + ".contains(_from)) continue;\n"
+            : "";
+
         // Pass 1: direct
         sb.append("        for (Address _t : _direct) {\n");
         sb.append("            for (Reference _ref : getReferencesTo(_t)) {\n");
         sb.append("                if (!_ref.getReferenceType().isCall()) continue;\n");
         sb.append("                Address _from = _ref.getFromAddress();\n");
+        sb.append(scopeCheck);
         sb.append("                if (!_seenFrom.add(_from)) continue;\n");
         sb.append("                Function _fn = getFunctionContaining(_from);\n");
         sb.append("                String _fnName = (_fn != null) ? _fn.getName() : \"<no-fn>\";\n");
@@ -118,6 +128,7 @@ public class FindCallsHandler {
         sb.append("            for (Reference _ref : getReferencesTo(_t)) {\n");
         sb.append("                if (!_ref.getReferenceType().isCall()) continue;\n");
         sb.append("                Address _from = _ref.getFromAddress();\n");
+        sb.append(scopeCheck);
         sb.append("                if (!_seenFrom.add(_from)) continue;\n");
         sb.append("                Function _fn = getFunctionContaining(_from);\n");
         sb.append("                String _fnName = (_fn != null) ? _fn.getName() : \"<no-fn>\";\n");
