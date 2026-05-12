@@ -9,6 +9,7 @@ find bytes "4D 5A" in function "main"
 
 find calls to "malloc"
 find calls to "CreateFileA" external
+find calls to "CreateFileA" through thunks external
 
 find functions where xrefs > 5
 find functions where xrefs == 0

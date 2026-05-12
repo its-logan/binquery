@@ -16,7 +16,11 @@ query
     ;
 
 findCalls
-    : FIND CALLS TO STRING locationFilter?
+    : FIND CALLS TO STRING thunkClause? locationFilter?
+    ;
+
+thunkClause
+    : THROUGH THUNKS
     ;
 
 findFunctions
@@ -67,6 +71,8 @@ IN          : 'in' ;
 FUNCTION    : 'function' ;
 INTERNAL    : 'internal' ;
 EXTERNAL    : 'external' ;
+THROUGH     : 'through' ;
+THUNKS      : 'thunks' ;
 
 // Comparison operators --- multi-char first to satisfy lexer max-munch ordering
 GE          : '>=' ;

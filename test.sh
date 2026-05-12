@@ -86,8 +86,8 @@ assert_semantic_exception() {
 
 echo
 echo "=== Test 1: per-query goldens ============================"
-for s in audit find_calls find_functions_xrefs find_functions_named \
-         find_symbols find_in_function cache_reuse; do
+for s in audit find_calls find_calls_thunks find_functions_xrefs \
+         find_functions_named find_symbols find_in_function cache_reuse; do
     run_main "samples/${s}.bq"
     assert_golden "${s}"
 done
@@ -121,8 +121,9 @@ if [ "$CHECK_GHIDRA" -eq 1 ]; then
     TMP=/tmp/bq-check
     rm -rf "$TMP"
     mkdir -p "$TMP/src"
-    for s in audit find_calls find_functions_xrefs find_functions_named \
-             find_symbols find_in_function cache_reuse multi_query; do
+    for s in audit find_calls find_calls_thunks find_functions_xrefs \
+             find_functions_named find_symbols find_in_function \
+             cache_reuse multi_query; do
         # Generated .java's class name is derived from the script's IDENTIFIER,
         # not the filename. Read first 'public class' line.
         cls=$(grep -m1 -oP 'public class \K\w+' "samples/${s}.java")
