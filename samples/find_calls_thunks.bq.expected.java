@@ -2,12 +2,14 @@ import ghidra.app.script.GhidraScript;
 import ghidra.program.model.symbol.*;
 import ghidra.program.model.listing.*;
 import ghidra.program.model.address.*;
+import ghidra.program.util.string.FoundString;
 import java.util.HashMap;
 import java.util.Map;
 
 public class FindCallsThunksDemo extends GhidraScript {
     public void run() throws Exception {
       Map<String, Address[]> _byteCache = new HashMap<>();
+      Map<String, java.util.List<FoundString>> _stringCache = new HashMap<>();
       {
         // --- find calls to "malloc" through thunks ---
         java.util.LinkedHashSet<Address> _direct = new java.util.LinkedHashSet<>();
@@ -157,5 +159,23 @@ public class FindCallsThunksDemo extends GhidraScript {
             printf("[findCalls] no calls to: _strlen\n");
         }
       }
+    }
+
+    private String _renderStr(String s) {
+        StringBuilder sb = new StringBuilder();
+        int limit = Math.min(s.length(), 80);
+        for (int i = 0; i < limit; i++) {
+            char c = s.charAt(i);
+            switch (c) {
+                case '\n': sb.append("\\n"); break;
+                case '\r': sb.append("\\r"); break;
+                case '\t': sb.append("\\t"); break;
+                case '\\': sb.append("\\\\"); break;
+                case '"':  sb.append("\\\""); break;
+                default:    sb.append(c);
+            }
+        }
+        if (s.length() > 80) sb.append("...");
+        return sb.toString();
     }
 }

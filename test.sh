@@ -87,7 +87,8 @@ assert_semantic_exception() {
 echo
 echo "=== Test 1: per-query goldens ============================"
 for s in audit find_calls find_calls_thunks find_functions_xrefs \
-         find_functions_named find_symbols find_in_function cache_reuse; do
+         find_functions_named find_symbols find_in_function cache_reuse \
+         find_strings; do
     run_main "samples/${s}.bq"
     assert_golden "${s}"
 done
@@ -106,6 +107,7 @@ echo "=== Test 3: error_demo* --- semantic validation =========="
 assert_semantic_exception error_demo          "invalid byte pattern"
 assert_semantic_exception error_demo_empty    "cannot be empty"
 assert_semantic_exception error_demo_conflict "mutually exclusive"
+assert_semantic_exception error_demo_strings  "minlen must be"
 
 # ----- Test 4: Ghidra API type-check ----------------------------------------
 
@@ -123,7 +125,7 @@ if [ "$CHECK_GHIDRA" -eq 1 ]; then
     mkdir -p "$TMP/src"
     for s in audit find_calls find_calls_thunks find_functions_xrefs \
              find_functions_named find_symbols find_in_function \
-             cache_reuse multi_query; do
+             cache_reuse find_strings multi_query; do
         # Generated .java's class name is derived from the script's IDENTIFIER,
         # not the filename. Read first 'public class' line.
         cls=$(grep -m1 -oP 'public class \K\w+' "samples/${s}.java")

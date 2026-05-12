@@ -19,3 +19,7 @@ find functions external
 
 find symbols "_stdout"
 find symbols "printf" external
+
+find strings minlen 8
+find strings minlen 4 containing "http"
+find strings minlen 6 matching "[A-Z]{4,}" in function "main"

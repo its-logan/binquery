@@ -13,6 +13,7 @@ query
     | findFunctions
     | findSymbols
     | findBytes
+    | findStrings
     ;
 
 findCalls
@@ -33,6 +34,24 @@ findSymbols
 
 findBytes
     : FIND BYTES STRING (FROM HEX_ADDR)? (IN FUNCTION STRING)?
+    ;
+
+findStrings
+    : FIND STRINGS MINLEN INT encodingClause? stringFilter? scopeClause?
+    ;
+
+encodingClause
+    : ASCII
+    | UNICODE
+    ;
+
+stringFilter
+    : CONTAINING STRING
+    | MATCHING STRING
+    ;
+
+scopeClause
+    : IN FUNCTION STRING
     ;
 
 functionPredicate
@@ -73,6 +92,12 @@ INTERNAL    : 'internal' ;
 EXTERNAL    : 'external' ;
 THROUGH     : 'through' ;
 THUNKS      : 'thunks' ;
+STRINGS     : 'strings' ;
+MINLEN      : 'minlen' ;
+CONTAINING  : 'containing' ;
+MATCHING    : 'matching' ;
+ASCII       : 'ascii' ;
+UNICODE     : 'unicode' ;
 
 // Comparison operators --- multi-char first to satisfy lexer max-munch ordering
 GE          : '>=' ;
